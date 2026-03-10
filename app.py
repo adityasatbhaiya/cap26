@@ -23,6 +23,7 @@ def load_data():
 
     return df
 
+
 df = load_data()
 
 # ------------------------------------------------
@@ -31,7 +32,9 @@ df = load_data()
 
 @st.cache_resource
 def load_model():
-    return joblib.load("model.pkl")
+    model = joblib.load("model.pkl")
+    return model
+
 
 model = load_model()
 
@@ -66,12 +69,14 @@ page = st.sidebar.radio(
 )
 
 # =================================================
-# PAGE 1 — EDA
+# PAGE 1 — EDA DASHBOARD
 # =================================================
 
 if page == "EDA Dashboard":
 
     st.title("💳 Credit Card Default Risk Analysis Dashboard")
+
+    st.header("Dataset Overview")
 
     col1, col2, col3 = st.columns(3)
 
@@ -96,7 +101,7 @@ if page == "EDA Dashboard":
 
     st.pyplot(fig)
 
-    # Credit limit distribution
+    # Credit limit
 
     st.header("Credit Limit Distribution")
 
@@ -133,13 +138,19 @@ if page == "EDA Dashboard":
 
     numeric_df = df.select_dtypes(include=["int64","float64"])
 
-    corr = numeric_df.corr()
+    corr_matrix = numeric_df.corr()
 
-    mask = np.triu(np.ones_like(corr))
+    mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
 
     fig, ax = plt.subplots(figsize=(14,10))
 
-    sns.heatmap(corr, mask=mask, cmap="RdYlGn", center=0)
+    sns.heatmap(
+        corr_matrix,
+        mask=mask,
+        cmap="RdYlGn",
+        center=0,
+        ax=ax
+    )
 
     st.pyplot(fig)
 
@@ -151,7 +162,7 @@ if page == "Prediction":
 
     st.title("🔮 Credit Default Prediction")
 
-    st.write("Enter financial metrics")
+    st.write("Enter financial behaviour metrics to estimate default probability.")
 
     AVG_BILL_AMT = st.number_input("Average Bill Amount", value=50000.0)
     AVG_PAY_AMT = st.number_input("Average Payment Amount", value=20000.0)
@@ -164,25 +175,20 @@ if page == "Prediction":
 
     if st.button("Predict Default Risk"):
 
-        # Create full feature vector expected by model
-        full_features = np.zeros((1, model.n_features_in_))
+        input_df = pd.DataFrame({
+            'AVG_BILL_AMT':[AVG_BILL_AMT],
+            'AVG_PAY_AMT':[AVG_PAY_AMT],
+            'UTILIZATION':[UTILIZATION],
+            'AVG_PAY_STATUS':[AVG_PAY_STATUS],
+            'MAX_PAY_DELAY':[MAX_PAY_DELAY],
+            'TOTAL_BILL':[TOTAL_BILL],
+            'TOTAL_PAY':[TOTAL_PAY],
+            'PAY_RATIO':[PAY_RATIO]
+        })
 
-        inputs = [
-            AVG_BILL_AMT,
-            AVG_PAY_AMT,
-            UTILIZATION,
-            AVG_PAY_STATUS,
-            MAX_PAY_DELAY,
-            TOTAL_BILL,
-            TOTAL_PAY,
-            PAY_RATIO
-        ]
+        prediction = model.predict(input_df)[0]
 
-        for i,val in enumerate(inputs):
-            full_features[0,i] = val
-
-        prediction = model.predict(full_features)[0]
-        probability = model.predict_proba(full_features)[0][1]
+        probability = model.predict_proba(input_df)[0][1]
 
         if prediction == 1:
             st.error(f"⚠️ High Risk of Default\nProbability: {probability:.2%}")

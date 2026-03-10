@@ -86,9 +86,7 @@ if page == "EDA Dashboard":
 
     st.dataframe(df.head())
 
-    # --------------------------
-    # Default Distribution
-    # --------------------------
+    # Default distribution
 
     st.header("Default Distribution")
 
@@ -103,9 +101,7 @@ if page == "EDA Dashboard":
 
     st.pyplot(fig)
 
-    # --------------------------
-    # Credit Limit
-    # --------------------------
+    # Credit limit
 
     st.header("Credit Limit Distribution")
 
@@ -118,9 +114,7 @@ if page == "EDA Dashboard":
 
     st.pyplot(fig)
 
-    # --------------------------
-    # Payment Delay
-    # --------------------------
+    # Payment delays
 
     st.header("Payment Delay Analysis")
 
@@ -138,9 +132,7 @@ if page == "EDA Dashboard":
 
     st.pyplot(fig)
 
-    # --------------------------
-    # Correlation Heatmap
-    # --------------------------
+    # Correlation heatmap
 
     st.header("Correlation Heatmap")
 
@@ -183,29 +175,16 @@ if page == "Prediction":
 
     if st.button("Predict Default Risk"):
 
-        input_data = {
-            'AVG_BILL_AMT': AVG_BILL_AMT,
-            'AVG_PAY_AMT': AVG_PAY_AMT,
-            'UTILIZATION': UTILIZATION,
-            'AVG_PAY_STATUS': AVG_PAY_STATUS,
-            'MAX_PAY_DELAY': MAX_PAY_DELAY,
-            'TOTAL_BILL': TOTAL_BILL,
-            'TOTAL_PAY': TOTAL_PAY,
-            'PAY_RATIO': PAY_RATIO
-        }
-
-        # Get expected features from model
-        model_features = model.feature_names_in_
-
-        input_df = pd.DataFrame(columns=model_features)
-
-        # initialize all features to 0
-        input_df.loc[0] = 0
-
-        # insert our selected features
-        for col in input_data:
-            if col in input_df.columns:
-                input_df[col] = input_data[col]
+        input_df = pd.DataFrame({
+            'AVG_BILL_AMT':[AVG_BILL_AMT],
+            'AVG_PAY_AMT':[AVG_PAY_AMT],
+            'UTILIZATION':[UTILIZATION],
+            'AVG_PAY_STATUS':[AVG_PAY_STATUS],
+            'MAX_PAY_DELAY':[MAX_PAY_DELAY],
+            'TOTAL_BILL':[TOTAL_BILL],
+            'TOTAL_PAY':[TOTAL_PAY],
+            'PAY_RATIO':[PAY_RATIO]
+        })
 
         prediction = model.predict(input_df)[0]
 

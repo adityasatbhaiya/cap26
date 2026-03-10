@@ -32,14 +32,13 @@ df = load_data()
 
 @st.cache_resource
 def load_model():
-    model = joblib.load("model.pkl")
-    return model
+    return joblib.load("model.pkl")
 
 
 model = load_model()
 
 # ------------------------------------------------
-# FEATURE ENGINEERING
+# FEATURE ENGINEERING (same as training)
 # ------------------------------------------------
 
 bill_cols = ['BILL_AMT1','BILL_AMT2','BILL_AMT3','BILL_AMT4','BILL_AMT5','BILL_AMT6']
@@ -87,7 +86,6 @@ if page == "EDA Dashboard":
     st.dataframe(df.head())
 
     # Default distribution
-
     st.header("Default Distribution")
 
     fig, axes = plt.subplots(1,2, figsize=(12,5))
@@ -102,7 +100,6 @@ if page == "EDA Dashboard":
     st.pyplot(fig)
 
     # Credit limit
-
     st.header("Credit Limit Distribution")
 
     fig, ax = plt.subplots()
@@ -115,7 +112,6 @@ if page == "EDA Dashboard":
     st.pyplot(fig)
 
     # Payment delays
-
     st.header("Payment Delay Analysis")
 
     pay_cols = ["PAY_1","PAY_2","PAY_3","PAY_4","PAY_5","PAY_6"]
@@ -133,7 +129,6 @@ if page == "EDA Dashboard":
     st.pyplot(fig)
 
     # Correlation heatmap
-
     st.header("Correlation Heatmap")
 
     numeric_df = df.select_dtypes(include=["int64","float64"])
@@ -162,7 +157,7 @@ if page == "Prediction":
 
     st.title("🔮 Credit Default Prediction")
 
-    st.write("Enter financial behaviour metrics to estimate default probability.")
+    st.write("Enter financial behaviour metrics.")
 
     AVG_BILL_AMT = st.number_input("Average Bill Amount", value=50000.0)
     AVG_PAY_AMT = st.number_input("Average Payment Amount", value=20000.0)
@@ -175,20 +170,28 @@ if page == "Prediction":
 
     if st.button("Predict Default Risk"):
 
-        input_df = pd.DataFrame({
-            'AVG_BILL_AMT':[AVG_BILL_AMT],
-            'AVG_PAY_AMT':[AVG_PAY_AMT],
-            'UTILIZATION':[UTILIZATION],
-            'AVG_PAY_STATUS':[AVG_PAY_STATUS],
-            'MAX_PAY_DELAY':[MAX_PAY_DELAY],
-            'TOTAL_BILL':[TOTAL_BILL],
-            'TOTAL_PAY':[TOTAL_PAY],
-            'PAY_RATIO':[PAY_RATIO]
-        })
+        # build full feature vector expected by model
+        full_features = pd.DataFrame(
+            np.zeros((1, model.n_features_in_))
+        )
 
-        prediction = model.predict(input_df)[0]
+        # assign the engineered variables in the first columns
+        input_values = [
+            AVG_BILL_AMT,
+            AVG_PAY_AMT,
+            UTILIZATION,
+            AVG_PAY_STATUS,
+            MAX_PAY_DELAY,
+            TOTAL_BILL,
+            TOTAL_PAY,
+            PAY_RATIO
+        ]
 
-        probability = model.predict_proba(input_df)[0][1]
+        for i, val in enumerate(input_values):
+            full_features.iloc[0, i] = val
+
+        prediction = model.predict(full_features)[0]
+        probability = model.predict_proba(full_features)[0][1]
 
         if prediction == 1:
             st.error(f"⚠️ High Risk of Default\nProbability: {probability:.2%}")

@@ -3,249 +3,198 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import joblib
 
 st.set_page_config(
     page_title="Credit Card Default Risk Dashboard",
     layout="wide"
 )
 
-st.title("💳 Credit Card Default Risk Analysis Dashboard")
-
-st.markdown("""
-This dashboard presents **Exploratory Data Analysis (EDA)** for the Credit Card Default dataset.
-The objective is to understand demographic and financial factors contributing to **credit card default risk**.
-""")
-
-# ----------------------------------------------------
-# Load Dataset
-# ----------------------------------------------------
+# ------------------------------------------------
+# LOAD DATA
+# ------------------------------------------------
 
 @st.cache_data
 def load_data():
     df = pd.read_csv("default of credit card clients (1).csv")
-
     if "ID" in df.columns:
         df = df.drop(columns=["ID"])
-
     return df
 
 df = load_data()
 
-# ----------------------------------------------------
-# Dataset Overview
-# ----------------------------------------------------
+# ------------------------------------------------
+# LOAD MODEL
+# ------------------------------------------------
 
-st.header("📊 Dataset Overview")
+@st.cache_resource
+def load_model():
+    model = joblib.load("model.pkl")
+    return model
 
-col1, col2, col3 = st.columns(3)
+model = load_model()
 
-col1.metric("Total Records", f"{df.shape[0]:,}")
-col2.metric("Total Features", df.shape[1]-1)
-col3.metric("Target Variable", "dpnm")
+# ------------------------------------------------
+# FEATURE ENGINEERING (same as your notebook)
+# ------------------------------------------------
 
-st.subheader("Dataset Preview")
-st.dataframe(df.head())
+bill_cols = ['BILL_AMT1','BILL_AMT2','BILL_AMT3','BILL_AMT4','BILL_AMT5','BILL_AMT6']
+pay_amt_cols = ['PAY_AMT1','PAY_AMT2','PAY_AMT3','PAY_AMT4','PAY_AMT5','PAY_AMT6']
+pay_status_cols = ['PAY_1','PAY_2','PAY_3','PAY_4','PAY_5','PAY_6']
 
-# ----------------------------------------------------
-# Target Distribution
-# ----------------------------------------------------
+df_model = df.copy()
 
-st.header("🎯 Default Distribution")
+df_model['AVG_BILL_AMT'] = df_model[bill_cols].mean(axis=1)
+df_model['AVG_PAY_AMT'] = df_model[pay_amt_cols].mean(axis=1)
+df_model['UTILIZATION'] = df_model['AVG_BILL_AMT'] / (df_model['LIMIT_BAL'] + 1)
+df_model['AVG_PAY_STATUS'] = df_model[pay_status_cols].mean(axis=1)
+df_model['MAX_PAY_DELAY'] = df_model[pay_status_cols].max(axis=1)
+df_model['TOTAL_BILL'] = df_model[bill_cols].sum(axis=1)
+df_model['TOTAL_PAY'] = df_model[pay_amt_cols].sum(axis=1)
+df_model['PAY_RATIO'] = df_model['TOTAL_PAY'] / (df_model['TOTAL_BILL'] + 1)
 
-fig, axes = plt.subplots(1,2, figsize=(12,5))
+# ------------------------------------------------
+# SIDEBAR NAVIGATION
+# ------------------------------------------------
 
-colors = ["#2ecc71","#e74c3c"]
+st.sidebar.title("Navigation")
 
-vc = df["dpnm"].value_counts()
-
-axes[0].bar(["No Default","Default"], vc.values, color=colors)
-axes[0].set_title("Credit Card Default Distribution")
-axes[0].set_ylabel("Count")
-
-axes[1].pie(
-    vc.values,
-    labels=["No Default","Default"],
-    autopct="%1.1f%%",
-    colors=colors
+page = st.sidebar.radio(
+    "Select Page",
+    ["EDA Dashboard", "Prediction"]
 )
 
-axes[1].set_title("Default Proportion")
+# =================================================
+# PAGE 1 : EDA DASHBOARD
+# =================================================
 
-st.pyplot(fig)
+if page == "EDA Dashboard":
 
-st.info("⚠️ Class imbalance exists (~78% No Default vs ~22% Default)")
+    st.title("💳 Credit Card Default Risk Analysis Dashboard")
 
-# ----------------------------------------------------
-# Demographic Analysis
-# ----------------------------------------------------
+    st.header("Dataset Overview")
 
-st.header("👥 Demographic Analysis")
+    col1, col2, col3 = st.columns(3)
 
-df["SEX_label"] = df["SEX"].map({1:"Male",2:"Female"})
+    col1.metric("Total Records", f"{df.shape[0]:,}")
+    col2.metric("Total Features", df.shape[1]-1)
+    col3.metric("Target Variable", "dpnm")
 
-gender_default = df.groupby("SEX_label")["dpnm"].mean()*100
+    st.dataframe(df.head())
 
-fig, ax = plt.subplots()
+    # -------------------------
+    # Target Distribution
+    # -------------------------
 
-ax.bar(gender_default.index, gender_default.values)
+    st.header("Default Distribution")
 
-ax.set_title("Default Rate by Gender")
-ax.set_ylabel("Default Rate (%)")
+    fig, axes = plt.subplots(1,2, figsize=(12,5))
 
-st.pyplot(fig)
+    vc = df["dpnm"].value_counts()
 
-# ----------------------------------------------------
-# Credit Limit Distribution
-# ----------------------------------------------------
+    axes[0].bar(["No Default","Default"], vc.values)
+    axes[0].set_title("Default Distribution")
 
-st.header("💰 Credit Limit Distribution")
+    axes[1].pie(vc.values, labels=["No Default","Default"], autopct="%1.1f%%")
 
-fig, ax = plt.subplots()
+    st.pyplot(fig)
 
-df[df["dpnm"]==0]["LIMIT_BAL"].hist(
-    bins=40,
-    alpha=0.6,
-    label="No Default",
-    ax=ax
-)
+    # -------------------------
+    # Credit Limit
+    # -------------------------
 
-df[df["dpnm"]==1]["LIMIT_BAL"].hist(
-    bins=40,
-    alpha=0.6,
-    label="Default",
-    ax=ax
-)
+    st.header("Credit Limit Distribution")
 
-ax.legend()
+    fig, ax = plt.subplots()
 
-ax.set_title("Credit Limit Distribution by Default")
+    df[df["dpnm"]==0]["LIMIT_BAL"].hist(bins=40, alpha=0.6, label="No Default", ax=ax)
+    df[df["dpnm"]==1]["LIMIT_BAL"].hist(bins=40, alpha=0.6, label="Default", ax=ax)
 
-st.pyplot(fig)
+    ax.legend()
 
-# ----------------------------------------------------
-# Payment History Analysis
-# ----------------------------------------------------
+    st.pyplot(fig)
 
-st.header("📅 Payment Delay vs Default")
+    # -------------------------
+    # Payment Delay
+    # -------------------------
 
-pay_cols = ["PAY_1","PAY_2","PAY_3","PAY_4","PAY_5","PAY_6"]
+    st.header("Payment Delay Analysis")
 
-fig, axes = plt.subplots(2,3, figsize=(14,8))
+    pay_cols = ["PAY_1","PAY_2","PAY_3","PAY_4","PAY_5","PAY_6"]
 
-for ax,col in zip(axes.flatten(),pay_cols):
+    fig, axes = plt.subplots(2,3, figsize=(14,8))
 
-    default_rate = df.groupby(col)["dpnm"].mean()*100
+    for ax,col in zip(axes.flatten(),pay_cols):
 
-    ax.bar(default_rate.index.astype(str), default_rate.values)
+        default_rate = df.groupby(col)["dpnm"].mean()*100
 
-    ax.set_title(col)
+        ax.bar(default_rate.index.astype(str), default_rate.values)
 
-    ax.set_xlabel("Payment Status")
-    ax.set_ylabel("Default Rate (%)")
+        ax.set_title(col)
 
-st.pyplot(fig)
+    st.pyplot(fig)
 
-st.success("""
-Key Insight: Customers with **recent payment delays (PAY_1)** have significantly higher default probability.
-""")
+    # -------------------------
+    # Correlation Heatmap
+    # -------------------------
 
-# ----------------------------------------------------
-# Age Distribution
-# ----------------------------------------------------
+    st.header("Correlation Heatmap")
 
-st.header("🎂 Age Distribution")
+    numeric_df = df.select_dtypes(include=["int64","float64"])
 
-fig, axes = plt.subplots(1,2, figsize=(12,5))
+    corr_matrix = numeric_df.corr()
 
-df[df["dpnm"]==0]["AGE"].hist(
-    bins=30,
-    alpha=0.6,
-    label="No Default",
-    ax=axes[0]
-)
+    mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
 
-df[df["dpnm"]==1]["AGE"].hist(
-    bins=30,
-    alpha=0.6,
-    label="Default",
-    ax=axes[0]
-)
+    fig, ax = plt.subplots(figsize=(14,10))
 
-axes[0].legend()
-axes[0].set_title("Age Distribution by Default")
+    sns.heatmap(
+        corr_matrix,
+        mask=mask,
+        cmap="RdYlGn",
+        center=0,
+        ax=ax
+    )
 
-sns.boxplot(
-    x="dpnm",
-    y="AGE",
-    data=df,
-    ax=axes[1]
-)
+    st.pyplot(fig)
 
-axes[1].set_title("Age Boxplot by Default")
+# =================================================
+# PAGE 2 : PREDICTION
+# =================================================
 
-st.pyplot(fig)
+if page == "Prediction":
 
-# ----------------------------------------------------
-# Correlation Heatmap (FIXED)
-# ----------------------------------------------------
-
-st.header("🔥 Correlation Heatmap")
-
-# Select only numeric columns to avoid errors
-numeric_df = df.select_dtypes(include=["int64","float64"])
-
-corr_matrix = numeric_df.corr()
-
-# Mask upper triangle for cleaner heatmap
-mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
-
-fig, ax = plt.subplots(figsize=(14,10))
-
-sns.heatmap(
-    corr_matrix,
-    mask=mask,
-    cmap="RdYlGn",
-    center=0,
-    ax=ax
-)
-
-ax.set_title("Feature Correlation Heatmap")
-
-st.pyplot(fig)
-
-# ----------------------------------------------------
-# Business Insights
-# ----------------------------------------------------
-
-st.header("💡 Business Insights")
-
-st.markdown("""
-
-### Key Risk Drivers
-
-**Payment Behaviour**
-
-• PAY_1 (recent payment delay) is the strongest predictor of default  
-• Multiple delayed payments significantly increase risk  
-
-**Credit Utilization**
-
-• Customers with higher outstanding balances relative to their credit limit show higher risk  
-
-**Demographics**
-
-• Younger customers show slightly higher default probability  
-
----
-
-### Business Recommendations
-
-1️⃣ Implement **early warning systems for payment delays**  
-
-2️⃣ Monitor **credit utilization ratios** for high-risk customers  
-
-3️⃣ Introduce **risk-based credit limits and monitoring**
-
-""")
-
-st.success("✅ Dashboard Loaded Successfully")
+    st.title("🔮 Credit Default Prediction")
+
+    st.write("Enter financial behaviour metrics to predict default risk.")
+
+    AVG_BILL_AMT = st.number_input("Average Bill Amount", value=50000.0)
+    AVG_PAY_AMT = st.number_input("Average Payment Amount", value=20000.0)
+    UTILIZATION = st.number_input("Credit Utilization", value=0.3)
+    AVG_PAY_STATUS = st.number_input("Average Payment Status", value=0.0)
+    MAX_PAY_DELAY = st.number_input("Maximum Payment Delay", value=0.0)
+    TOTAL_BILL = st.number_input("Total Bill Amount", value=200000.0)
+    TOTAL_PAY = st.number_input("Total Payment Amount", value=120000.0)
+    PAY_RATIO = st.number_input("Payment Ratio", value=0.5)
+
+    if st.button("Predict Default Risk"):
+
+        input_data = pd.DataFrame({
+            'AVG_BILL_AMT':[AVG_BILL_AMT],
+            'AVG_PAY_AMT':[AVG_PAY_AMT],
+            'UTILIZATION':[UTILIZATION],
+            'AVG_PAY_STATUS':[AVG_PAY_STATUS],
+            'MAX_PAY_DELAY':[MAX_PAY_DELAY],
+            'TOTAL_BILL':[TOTAL_BILL],
+            'TOTAL_PAY':[TOTAL_PAY],
+            'PAY_RATIO':[PAY_RATIO]
+        })
+
+        prediction = model.predict(input_data)[0]
+
+        prob = model.predict_proba(input_data)[0][1]
+
+        if prediction == 1:
+            st.error(f"⚠️ High Risk of Default (Probability: {prob:.2%})")
+        else:
+            st.success(f"✅ Low Risk of Default (Probability: {prob:.2%})")

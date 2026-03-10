@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -15,28 +14,24 @@ st.markdown("""
 This dashboard presents **Exploratory Data Analysis (EDA)** for the Credit Card Default dataset.
 """)
 
-# ---------------------------------------------------
-# LOAD DATA FROM GITHUB RAW LINK
-# ---------------------------------------------------
+# ----------------------------------------------------
+# Load Dataset (Exact file name from your repository)
+# ----------------------------------------------------
 
 @st.cache_data
 def load_data():
-
-    url = "https://raw.githubusercontent.com/YOUR_USERNAME/cap26/main/default%20of%20credit%20card%20clients%20(1).csv"
-
-    df = pd.read_csv(url)
+    df = pd.read_csv("default of credit card clients (1).csv")
 
     if "ID" in df.columns:
         df = df.drop(columns=["ID"])
 
     return df
 
-
 df = load_data()
 
-# ---------------------------------------------------
-# DATASET OVERVIEW
-# ---------------------------------------------------
+# ----------------------------------------------------
+# Dataset Overview
+# ----------------------------------------------------
 
 st.header("📊 Dataset Overview")
 
@@ -48,9 +43,9 @@ col3.metric("Target Variable", "dpnm")
 
 st.dataframe(df.head())
 
-# ---------------------------------------------------
-# TARGET DISTRIBUTION
-# ---------------------------------------------------
+# ----------------------------------------------------
+# Target Distribution
+# ----------------------------------------------------
 
 st.header("🎯 Default Distribution")
 
@@ -61,15 +56,20 @@ colors = ["#2ecc71","#e74c3c"]
 vc = df["dpnm"].value_counts()
 
 axes[0].bar(["No Default","Default"], vc.values, color=colors)
-axes[0].set_title("Default Distribution")
+axes[0].set_title("Credit Card Default Distribution")
 
-axes[1].pie(vc.values, labels=["No Default","Default"], autopct="%1.1f%%", colors=colors)
+axes[1].pie(
+    vc.values,
+    labels=["No Default","Default"],
+    autopct="%1.1f%%",
+    colors=colors
+)
 
 st.pyplot(fig)
 
-# ---------------------------------------------------
-# DEMOGRAPHIC ANALYSIS
-# ---------------------------------------------------
+# ----------------------------------------------------
+# Demographic Analysis
+# ----------------------------------------------------
 
 st.header("👥 Demographic Analysis")
 
@@ -82,29 +82,41 @@ fig, ax = plt.subplots()
 ax.bar(gender_default.index, gender_default.values)
 
 ax.set_title("Default Rate by Gender")
-ax.set_ylabel("Default Rate %")
+ax.set_ylabel("Default Rate (%)")
 
 st.pyplot(fig)
 
-# ---------------------------------------------------
-# CREDIT LIMIT DISTRIBUTION
-# ---------------------------------------------------
+# ----------------------------------------------------
+# Credit Limit Distribution
+# ----------------------------------------------------
 
 st.header("💰 Credit Limit Distribution")
 
 fig, ax = plt.subplots()
 
-df[df["dpnm"]==0]["LIMIT_BAL"].hist(bins=40, alpha=0.6, label="No Default", ax=ax)
+df[df["dpnm"]==0]["LIMIT_BAL"].hist(
+    bins=40,
+    alpha=0.6,
+    label="No Default",
+    ax=ax
+)
 
-df[df["dpnm"]==1]["LIMIT_BAL"].hist(bins=40, alpha=0.6, label="Default", ax=ax)
+df[df["dpnm"]==1]["LIMIT_BAL"].hist(
+    bins=40,
+    alpha=0.6,
+    label="Default",
+    ax=ax
+)
 
 ax.legend()
 
+ax.set_title("Credit Limit Distribution by Default")
+
 st.pyplot(fig)
 
-# ---------------------------------------------------
-# PAYMENT HISTORY
-# ---------------------------------------------------
+# ----------------------------------------------------
+# Payment History
+# ----------------------------------------------------
 
 st.header("📅 Payment Delay vs Default")
 
@@ -120,11 +132,15 @@ for ax,col in zip(axes.flatten(),pay_cols):
 
     ax.set_title(col)
 
+    ax.set_xlabel("Payment Status")
+
+    ax.set_ylabel("Default Rate (%)")
+
 st.pyplot(fig)
 
-# ---------------------------------------------------
-# AGE DISTRIBUTION
-# ---------------------------------------------------
+# ----------------------------------------------------
+# Age Distribution
+# ----------------------------------------------------
 
 st.header("🎂 Age Distribution")
 
@@ -135,11 +151,13 @@ df[df["dpnm"]==1]["AGE"].hist(bins=30, alpha=0.6, label="Default", ax=ax)
 
 ax.legend()
 
+ax.set_title("Age Distribution by Default")
+
 st.pyplot(fig)
 
-# ---------------------------------------------------
-# CORRELATION HEATMAP
-# ---------------------------------------------------
+# ----------------------------------------------------
+# Correlation Heatmap
+# ----------------------------------------------------
 
 st.header("🔥 Correlation Heatmap")
 
@@ -147,25 +165,27 @@ fig, ax = plt.subplots(figsize=(12,8))
 
 sns.heatmap(df.corr(), cmap="RdYlGn", center=0)
 
+ax.set_title("Feature Correlation")
+
 st.pyplot(fig)
 
-# ---------------------------------------------------
-# BUSINESS INSIGHTS
-# ---------------------------------------------------
+# ----------------------------------------------------
+# Business Insights
+# ----------------------------------------------------
 
 st.header("💡 Business Insights")
 
 st.markdown("""
 
-### Key Risk Drivers
+### Key Drivers of Credit Card Default
 
-• Payment delays are the strongest predictor of default  
-• Higher credit utilization increases default probability  
-• Younger customers show higher default risk  
+• Payment delays strongly increase default risk  
+• Higher credit utilization correlates with default  
+• Younger customers show slightly higher default rates  
 
 ### Recommendations
 
-1️⃣ Monitor customers with **recent payment delays**  
+1️⃣ Monitor customers with **recent payment delays (PAY_1 ≥ 1)**  
 2️⃣ Implement **credit utilization alerts**  
 3️⃣ Introduce **risk-based credit policies**
 

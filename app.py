@@ -17,9 +17,12 @@ st.set_page_config(
 @st.cache_data
 def load_data():
     df = pd.read_csv("default of credit card clients (1).csv")
+
     if "ID" in df.columns:
         df = df.drop(columns=["ID"])
+
     return df
+
 
 df = load_data()
 
@@ -32,10 +35,11 @@ def load_model():
     model = joblib.load("model.pkl")
     return model
 
+
 model = load_model()
 
 # ------------------------------------------------
-# FEATURE ENGINEERING (same as your notebook)
+# FEATURE ENGINEERING
 # ------------------------------------------------
 
 bill_cols = ['BILL_AMT1','BILL_AMT2','BILL_AMT3','BILL_AMT4','BILL_AMT5','BILL_AMT6']
@@ -54,7 +58,7 @@ df_model['TOTAL_PAY'] = df_model[pay_amt_cols].sum(axis=1)
 df_model['PAY_RATIO'] = df_model['TOTAL_PAY'] / (df_model['TOTAL_BILL'] + 1)
 
 # ------------------------------------------------
-# SIDEBAR NAVIGATION
+# SIDEBAR
 # ------------------------------------------------
 
 st.sidebar.title("Navigation")
@@ -65,7 +69,7 @@ page = st.sidebar.radio(
 )
 
 # =================================================
-# PAGE 1 : EDA DASHBOARD
+# PAGE 1 — EDA DASHBOARD
 # =================================================
 
 if page == "EDA Dashboard":
@@ -82,9 +86,9 @@ if page == "EDA Dashboard":
 
     st.dataframe(df.head())
 
-    # -------------------------
-    # Target Distribution
-    # -------------------------
+    # --------------------------
+    # Default Distribution
+    # --------------------------
 
     st.header("Default Distribution")
 
@@ -99,9 +103,9 @@ if page == "EDA Dashboard":
 
     st.pyplot(fig)
 
-    # -------------------------
+    # --------------------------
     # Credit Limit
-    # -------------------------
+    # --------------------------
 
     st.header("Credit Limit Distribution")
 
@@ -114,9 +118,9 @@ if page == "EDA Dashboard":
 
     st.pyplot(fig)
 
-    # -------------------------
+    # --------------------------
     # Payment Delay
-    # -------------------------
+    # --------------------------
 
     st.header("Payment Delay Analysis")
 
@@ -134,9 +138,9 @@ if page == "EDA Dashboard":
 
     st.pyplot(fig)
 
-    # -------------------------
+    # --------------------------
     # Correlation Heatmap
-    # -------------------------
+    # --------------------------
 
     st.header("Correlation Heatmap")
 
@@ -159,14 +163,14 @@ if page == "EDA Dashboard":
     st.pyplot(fig)
 
 # =================================================
-# PAGE 2 : PREDICTION
+# PAGE 2 — PREDICTION
 # =================================================
 
 if page == "Prediction":
 
     st.title("🔮 Credit Default Prediction")
 
-    st.write("Enter financial behaviour metrics to predict default risk.")
+    st.write("Enter financial behaviour metrics to estimate default probability.")
 
     AVG_BILL_AMT = st.number_input("Average Bill Amount", value=50000.0)
     AVG_PAY_AMT = st.number_input("Average Payment Amount", value=20000.0)
@@ -179,22 +183,35 @@ if page == "Prediction":
 
     if st.button("Predict Default Risk"):
 
-        input_data = pd.DataFrame({
-            'AVG_BILL_AMT':[AVG_BILL_AMT],
-            'AVG_PAY_AMT':[AVG_PAY_AMT],
-            'UTILIZATION':[UTILIZATION],
-            'AVG_PAY_STATUS':[AVG_PAY_STATUS],
-            'MAX_PAY_DELAY':[MAX_PAY_DELAY],
-            'TOTAL_BILL':[TOTAL_BILL],
-            'TOTAL_PAY':[TOTAL_PAY],
-            'PAY_RATIO':[PAY_RATIO]
-        })
+        input_data = {
+            'AVG_BILL_AMT': AVG_BILL_AMT,
+            'AVG_PAY_AMT': AVG_PAY_AMT,
+            'UTILIZATION': UTILIZATION,
+            'AVG_PAY_STATUS': AVG_PAY_STATUS,
+            'MAX_PAY_DELAY': MAX_PAY_DELAY,
+            'TOTAL_BILL': TOTAL_BILL,
+            'TOTAL_PAY': TOTAL_PAY,
+            'PAY_RATIO': PAY_RATIO
+        }
 
-        prediction = model.predict(input_data)[0]
+        # Get expected features from model
+        model_features = model.feature_names_in_
 
-        prob = model.predict_proba(input_data)[0][1]
+        input_df = pd.DataFrame(columns=model_features)
+
+        # initialize all features to 0
+        input_df.loc[0] = 0
+
+        # insert our selected features
+        for col in input_data:
+            if col in input_df.columns:
+                input_df[col] = input_data[col]
+
+        prediction = model.predict(input_df)[0]
+
+        probability = model.predict_proba(input_df)[0][1]
 
         if prediction == 1:
-            st.error(f"⚠️ High Risk of Default (Probability: {prob:.2%})")
+            st.error(f"⚠️ High Risk of Default\nProbability: {probability:.2%}")
         else:
-            st.success(f"✅ Low Risk of Default (Probability: {prob:.2%})")
+            st.success(f"✅ Low Risk of Default\nProbability: {probability:.2%}")

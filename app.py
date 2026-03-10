@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -12,10 +13,11 @@ st.title("💳 Credit Card Default Risk Analysis Dashboard")
 
 st.markdown("""
 This dashboard presents **Exploratory Data Analysis (EDA)** for the Credit Card Default dataset.
+The objective is to understand demographic and financial factors contributing to **credit card default risk**.
 """)
 
 # ----------------------------------------------------
-# Load Dataset (Exact file name from your repository)
+# Load Dataset
 # ----------------------------------------------------
 
 @st.cache_data
@@ -41,6 +43,7 @@ col1.metric("Total Records", f"{df.shape[0]:,}")
 col2.metric("Total Features", df.shape[1]-1)
 col3.metric("Target Variable", "dpnm")
 
+st.subheader("Dataset Preview")
 st.dataframe(df.head())
 
 # ----------------------------------------------------
@@ -57,6 +60,7 @@ vc = df["dpnm"].value_counts()
 
 axes[0].bar(["No Default","Default"], vc.values, color=colors)
 axes[0].set_title("Credit Card Default Distribution")
+axes[0].set_ylabel("Count")
 
 axes[1].pie(
     vc.values,
@@ -65,7 +69,11 @@ axes[1].pie(
     colors=colors
 )
 
+axes[1].set_title("Default Proportion")
+
 st.pyplot(fig)
+
+st.info("⚠️ Class imbalance exists (~78% No Default vs ~22% Default)")
 
 # ----------------------------------------------------
 # Demographic Analysis
@@ -115,7 +123,7 @@ ax.set_title("Credit Limit Distribution by Default")
 st.pyplot(fig)
 
 # ----------------------------------------------------
-# Payment History
+# Payment History Analysis
 # ----------------------------------------------------
 
 st.header("📅 Payment Delay vs Default")
@@ -133,10 +141,13 @@ for ax,col in zip(axes.flatten(),pay_cols):
     ax.set_title(col)
 
     ax.set_xlabel("Payment Status")
-
     ax.set_ylabel("Default Rate (%)")
 
 st.pyplot(fig)
+
+st.success("""
+Key Insight: Customers with **recent payment delays (PAY_1)** have significantly higher default probability.
+""")
 
 # ----------------------------------------------------
 # Age Distribution
@@ -144,28 +155,61 @@ st.pyplot(fig)
 
 st.header("🎂 Age Distribution")
 
-fig, ax = plt.subplots()
+fig, axes = plt.subplots(1,2, figsize=(12,5))
 
-df[df["dpnm"]==0]["AGE"].hist(bins=30, alpha=0.6, label="No Default", ax=ax)
-df[df["dpnm"]==1]["AGE"].hist(bins=30, alpha=0.6, label="Default", ax=ax)
+df[df["dpnm"]==0]["AGE"].hist(
+    bins=30,
+    alpha=0.6,
+    label="No Default",
+    ax=axes[0]
+)
 
-ax.legend()
+df[df["dpnm"]==1]["AGE"].hist(
+    bins=30,
+    alpha=0.6,
+    label="Default",
+    ax=axes[0]
+)
 
-ax.set_title("Age Distribution by Default")
+axes[0].legend()
+axes[0].set_title("Age Distribution by Default")
+
+sns.boxplot(
+    x="dpnm",
+    y="AGE",
+    data=df,
+    ax=axes[1]
+)
+
+axes[1].set_title("Age Boxplot by Default")
 
 st.pyplot(fig)
 
 # ----------------------------------------------------
-# Correlation Heatmap
+# Correlation Heatmap (FIXED)
 # ----------------------------------------------------
 
 st.header("🔥 Correlation Heatmap")
 
-fig, ax = plt.subplots(figsize=(12,8))
+# Select only numeric columns to avoid errors
+numeric_df = df.select_dtypes(include=["int64","float64"])
 
-sns.heatmap(df.corr(), cmap="RdYlGn", center=0)
+corr_matrix = numeric_df.corr()
 
-ax.set_title("Feature Correlation")
+# Mask upper triangle for cleaner heatmap
+mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
+
+fig, ax = plt.subplots(figsize=(14,10))
+
+sns.heatmap(
+    corr_matrix,
+    mask=mask,
+    cmap="RdYlGn",
+    center=0,
+    ax=ax
+)
+
+ax.set_title("Feature Correlation Heatmap")
 
 st.pyplot(fig)
 
@@ -177,18 +221,31 @@ st.header("💡 Business Insights")
 
 st.markdown("""
 
-### Key Drivers of Credit Card Default
+### Key Risk Drivers
 
-• Payment delays strongly increase default risk  
-• Higher credit utilization correlates with default  
-• Younger customers show slightly higher default rates  
+**Payment Behaviour**
 
-### Recommendations
+• PAY_1 (recent payment delay) is the strongest predictor of default  
+• Multiple delayed payments significantly increase risk  
 
-1️⃣ Monitor customers with **recent payment delays (PAY_1 ≥ 1)**  
-2️⃣ Implement **credit utilization alerts**  
-3️⃣ Introduce **risk-based credit policies**
+**Credit Utilization**
+
+• Customers with higher outstanding balances relative to their credit limit show higher risk  
+
+**Demographics**
+
+• Younger customers show slightly higher default probability  
+
+---
+
+### Business Recommendations
+
+1️⃣ Implement **early warning systems for payment delays**  
+
+2️⃣ Monitor **credit utilization ratios** for high-risk customers  
+
+3️⃣ Introduce **risk-based credit limits and monitoring**
 
 """)
 
-st.success("Dashboard Loaded Successfully")
+st.success("✅ Dashboard Loaded Successfully")
